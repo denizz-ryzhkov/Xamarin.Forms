@@ -1,5 +1,6 @@
 ﻿#if !FORMS_APPLICATION_ACTIVITY && !PRE_APPLICATION_CLASS
 
+using System;
 using Android.App;
 using Android.Content;
 using Android.Content.PM;
@@ -10,6 +11,9 @@ using Xamarin.Forms.Controls.Issues;
 using Xamarin.Forms.Platform.Android;
 using Xamarin.Forms.Platform.Android.AppLinks;
 using System.Linq;
+using Android.Graphics.Drawables;
+using Android.Support.Design.Widget;
+using Android.Views;
 using Xamarin.Forms.Internals;
 
 namespace Xamarin.Forms.ControlGallery.Android
@@ -95,6 +99,9 @@ namespace Xamarin.Forms.ControlGallery.Android
 			DependencyService.Register<IMultiWindowService, MultiWindowService>();
 			
 			LoadApplication(_app);
+			this.Window.SetSoftInputMode(SoftInput.AdjustResize);
+			var rootView = Window.DecorView.RootView;
+
 
 #if !TEST_EXPERIMENTAL_RENDERERS
 			if ((int)Build.VERSION.SdkInt >= 21)
@@ -114,7 +121,12 @@ namespace Xamarin.Forms.ControlGallery.Android
 		{
 			base.OnResume();
 			Profile.Stop();
+			var listenr = new GlobalLayoutListenr();
+			listenr.ContentView = Window.DecorView.RootView;
+			listenr.OnKeyboardChanged += ListenrOnOnKeyboardChanged;
+			Window.DecorView.RootView.ViewTreeObserver.AddOnGlobalLayoutListener(listenr);
 		}
+
 
 		[Export("IsPreAppCompat")]
 		public bool IsPreAppCompat()
@@ -140,6 +152,94 @@ namespace Xamarin.Forms.ControlGallery.Android
 			intent.AddCategory(Intent.CategoryLauncher);
 			this.ApplicationContext.StartActivity(intent);
 		}
+
+		private BottomNavigationView _bottomNavigationView;
+		void ListenrOnOnKeyboardChanged(object sender, LayoutListenrEventArgs e)
+		{
+			if (_bottomNavigationView == null)
+			{
+				var result = TryGetBottomNavigation();
+				if (result == false)
+					return;
+			}
+
+			if (e.KeyboardVisible)
+			{
+				_bottomNavigationView.Visibility = ViewStates.Gone;
+			}
+			else
+			{
+				_bottomNavigationView.Visibility = ViewStates.Visible;
+			}
+
+		}
+
+		bool TryGetBottomNavigation()
+		{
+			if (Window.DecorView.RootView is ViewGroup viewGroup)
+			{
+				if (viewGroup.GetChildAt(0) is ViewGroup viewGroup1)
+				{
+					if (viewGroup1.GetChildAt(1) is ViewGroup viewGroup2)
+					{
+						if (viewGroup2.GetChildAt(0) is ViewGroup viewGroup3)
+						{
+							if (viewGroup3.GetChildAt(0) is ViewGroup viewGroup4)
+							{
+								if (viewGroup4.GetChildAt(0) is ViewGroup viewGroup5)
+								{
+									if (viewGroup5.GetChildAt(0) is ViewGroup viewGroup6)
+									{
+										if (viewGroup6.GetChildAt(0) is ViewGroup viewGroup7)
+										{
+											if (viewGroup7.GetChildAt(0) is ViewGroup viewGroup8)
+											{
+												if (viewGroup8.GetChildAt(1) is ViewGroup viewGroup9)
+												{
+													if (viewGroup9 is BottomNavigationView bottomNavigation)
+													{
+														_bottomNavigationView = bottomNavigation;
+														_bottomNavigationView.Background = new ColorDrawable(global::Android.Graphics.Color.DarkRed);
+														return true;
+													}
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+			return false;
+		}
+	}
+
+	class GlobalLayoutListenr : Java.Lang.Object, ViewTreeObserver.IOnGlobalLayoutListener
+	{
+		public global::Android.Views.View ContentView { get; set; }
+		public event EventHandler<LayoutListenrEventArgs> OnKeyboardChanged = delegate { };
+		public void OnGlobalLayout()
+		{
+			var rect = new global::Android.Graphics.Rect();
+			ContentView?.GetWindowVisibleDisplayFrame(rect);
+			var scrennHeight = ContentView.RootView.Height;
+			var kepadheing = scrennHeight - rect.Bottom;
+			var keyBoadVisible = kepadheing > scrennHeight * 0.15;
+
+			OnKeyboardChanged(this, new LayoutListenrEventArgs()
+			{
+				KeyboardVisible = keyBoadVisible,
+				Height = rect.Height()
+			});
+		}
+	}
+
+	class LayoutListenrEventArgs : EventArgs
+	{
+		public bool KeyboardVisible { get; set; }
+		public int Height { get; set; }
 	}
 }
 
