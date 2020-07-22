@@ -72,8 +72,6 @@ namespace Xamarin.Forms.Platform.iOS
 				reusableCell = tableView.DequeueReusableCell(id);
 
 			var nativeCell = renderer.GetCell(cell, reusableCell, tableView);
-			if (nativeCell == null)
-				return null;
 
 			var cellWithContent = nativeCell;
 

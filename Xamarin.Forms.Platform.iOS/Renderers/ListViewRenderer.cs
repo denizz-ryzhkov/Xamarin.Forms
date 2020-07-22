@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
-using System.Threading.Tasks;
 using Foundation;
 using UIKit;
 using Xamarin.Forms.Internals;
@@ -1038,60 +1037,53 @@ namespace Xamarin.Forms.Platform.iOS
 				Cell cell;
 				UITableViewCell nativeCell;
 
-				try
-				{
-					Performance.Start(out string reference);
+				Performance.Start(out string reference);
 
-					var cachingStrategy = List.CachingStrategy;
-					if (cachingStrategy == ListViewCachingStrategy.RetainElement)
+				var cachingStrategy = List.CachingStrategy;
+				if (cachingStrategy == ListViewCachingStrategy.RetainElement)
+				{
+					cell = GetCellForPath(indexPath);
+					nativeCell = CellTableViewCell.GetNativeCell(tableView, cell);
+				}
+				else if ((cachingStrategy & ListViewCachingStrategy.RecycleElement) != 0)
+				{
+					var id = TemplateIdForPath(indexPath);
+					nativeCell = tableView.DequeueReusableCell(ContextActionsCell.Key + id);
+					if (nativeCell == null)
 					{
 						cell = GetCellForPath(indexPath);
-						nativeCell = CellTableViewCell.GetNativeCell(tableView, cell);
-					}
-					else if ((cachingStrategy & ListViewCachingStrategy.RecycleElement) != 0)
-					{
-						var id = TemplateIdForPath(indexPath);
-						nativeCell = tableView.DequeueReusableCell(ContextActionsCell.Key + id);
-						if (nativeCell == null)
-						{
-							cell = GetCellForPath(indexPath);
 
-							nativeCell = CellTableViewCell.GetNativeCell(tableView, cell, true, id.ToString());
-						}
-						else
-						{
-							var templatedList = TemplatedItemsView.TemplatedItems.GetGroup(indexPath.Section);
-
-							cell = (Cell)((INativeElementView)nativeCell).Element;
-							cell.SendDisappearing();
-
-							templatedList.UpdateContent(cell, indexPath.Row);
-							cell.SendAppearing();
-						}
+						nativeCell = CellTableViewCell.GetNativeCell(tableView, cell, true, id.ToString());
 					}
 					else
-						throw new NotSupportedException();
-
-					SetupSelection(nativeCell, tableView);
-
-					if (List.IsSet(Specifics.SeparatorStyleProperty))
 					{
-						if (List.OnThisPlatform().GetSeparatorStyle() == SeparatorStyle.FullWidth)
-						{
-							nativeCell.SeparatorInset = UIEdgeInsets.Zero;
-							nativeCell.LayoutMargins = UIEdgeInsets.Zero;
-							nativeCell.PreservesSuperviewLayoutMargins = false;
-						}
-					}
-					var bgColor = tableView.IndexPathForSelectedRow != null && tableView.IndexPathForSelectedRow.Equals(indexPath) ? UIColor.Clear : DefaultBackgroundColor;
-					SetCellBackgroundColor(nativeCell, bgColor);
-					PreserveActivityIndicatorState(cell);
-					Performance.Stop(reference);
-				}
-				catch (System.Exception)
-				{
-				}
+						var templatedList = TemplatedItemsView.TemplatedItems.GetGroup(indexPath.Section);
 
+						cell = (Cell)((INativeElementView)nativeCell).Element;
+						cell.SendDisappearing();
+
+						templatedList.UpdateContent(cell, indexPath.Row);
+						cell.SendAppearing();
+					}
+				}
+				else
+					throw new NotSupportedException();
+
+				SetupSelection(nativeCell, tableView);
+
+				if (List.IsSet(Specifics.SeparatorStyleProperty))
+				{
+					if (List.OnThisPlatform().GetSeparatorStyle() == SeparatorStyle.FullWidth)
+					{
+						nativeCell.SeparatorInset = UIEdgeInsets.Zero;
+						nativeCell.LayoutMargins = UIEdgeInsets.Zero;
+						nativeCell.PreservesSuperviewLayoutMargins = false;
+					}
+				}
+				var bgColor = tableView.IndexPathForSelectedRow != null && tableView.IndexPathForSelectedRow.Equals(indexPath) ? UIColor.Clear : DefaultBackgroundColor;
+				SetCellBackgroundColor(nativeCell, bgColor);
+				PreserveActivityIndicatorState(cell);
+				Performance.Stop(reference);
 				return nativeCell;
 			}
 
@@ -1112,20 +1104,21 @@ namespace Xamarin.Forms.Platform.iOS
 
 			public override UIView GetViewForHeader(UITableView tableView, nint section)
 			{
-				UIView view = null;
-
 				if (!List.IsGroupingEnabled)
-					return view;
+					return null;
 
 				var cell = TemplatedItemsView.TemplatedItems[(int)section];
 				if (cell.HasContextActions)
 					throw new NotSupportedException("Header cells do not support context actions");
 
-				var renderer = (CellRenderer)Internals.Registrar.Registered.GetHandlerForObject<IRegisterable>(cell);
-				view = new HeaderWrapperView { Cell = cell };
-				view.AddSubview(renderer.GetCell(cell, null, tableView));
+				const string reuseIdentifier = "HeaderWrapper";
+				var header = (HeaderWrapperView)tableView.DequeueReusableHeaderFooterView(reuseIdentifier) ?? new HeaderWrapperView(reuseIdentifier);
+				header.Cell = cell;
 
-				return view;
+				var renderer = (CellRenderer)Internals.Registrar.Registered.GetHandlerForObject<IRegisterable>(cell);
+				header.SetTableViewCell(renderer.GetCell(cell, null, tableView));
+
+				return header;
 			}
 
 			public override void HeaderViewDisplayingEnded(UITableView tableView, UIView headerView, nint section)
@@ -1464,9 +1457,24 @@ namespace Xamarin.Forms.Platform.iOS
 		}
 	}
 
-	internal class HeaderWrapperView : UIView
+	class HeaderWrapperView : UITableViewHeaderFooterView
 	{
+		public HeaderWrapperView(string reuseIdentifier) : base((NSString)reuseIdentifier)
+		{
+		}
+
+		UITableViewCell _tableViewCell;
+
 		public Cell Cell { get; set; }
+
+		public void SetTableViewCell(UITableViewCell value)
+		{
+			if (ReferenceEquals(_tableViewCell, value)) return;
+			_tableViewCell?.RemoveFromSuperview();
+			_tableViewCell = value;
+			AddSubview(value);
+		}
+
 		public override void LayoutSubviews()
 		{
 			base.LayoutSubviews();
