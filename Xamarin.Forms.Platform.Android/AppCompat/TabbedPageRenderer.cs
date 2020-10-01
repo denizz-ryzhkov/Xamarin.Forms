@@ -398,16 +398,29 @@ namespace Xamarin.Forms.Platform.Android.AppCompat
 
 				if (width > 0 && height > 0)
 				{
-					PageController.ContainerArea = new Rectangle(0, 0, context.FromPixels(width), context.FromPixels(height - _bottomNavigationView.MeasuredHeight));
+					if (_bottomNavigationView.Visibility == ViewStates.Visible)
+					{
+						PageController.ContainerArea = new Rectangle(0, 0, context.FromPixels(width),
+							context.FromPixels(height - _bottomNavigationView.MeasuredHeight));
 
-					SetNavigationRendererPadding(0, _bottomNavigationView.MeasuredHeight);
+						SetNavigationRendererPadding(0, _bottomNavigationView.MeasuredHeight);
 
+					}
+					else
+					{
+
+						PageController.ContainerArea = new Rectangle(0, 0, context.FromPixels(width),
+							context.FromPixels(height));
+						SetNavigationRendererPadding(0, 0);
+
+					}
 					pager.Layout(0, 0, width, b);
-					// We need to measure again to ensure that the tabs show up
 					_relativeLayout.Measure(
 						MeasureSpec.MakeMeasureSpec(width, MeasureSpecMode.Exactly),
 						MeasureSpec.MakeMeasureSpec(height, MeasureSpecMode.Exactly));
+					//_relativeLayout.Layout(0, 0, width, b);
 					_relativeLayout.Layout(0, 0, _relativeLayout.MeasuredWidth, _relativeLayout.MeasuredHeight);
+
 				}
 			}
 			else
