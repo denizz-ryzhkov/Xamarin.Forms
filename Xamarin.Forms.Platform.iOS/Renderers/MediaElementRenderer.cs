@@ -123,7 +123,7 @@ namespace Xamarin.Forms.Platform.iOS
 
 			if(_rateObserver != null)
 			{
-				_rateObserver.Dispose();
+				_avPlayerViewController?.Player?.RemoveObserver(_rateObserver, "rate");
 				_rateObserver = null;
 			}
 
