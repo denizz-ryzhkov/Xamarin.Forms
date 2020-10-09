@@ -472,9 +472,15 @@ namespace Xamarin.Forms.Platform.Android
 			if (_view != null)
 			{
 				_view.MetadataRetrieved -= MetadataRetrieved;
-				RemoveView(_view);
-				_view.SetOnPreparedListener(null);
-				_view.SetOnCompletionListener(null);
+
+                try
+                {
+					RemoveView(_view);
+					_view.SetOnPreparedListener(null);
+					_view.SetOnCompletionListener(null);
+				}
+                catch (Exception ex){}
+
 				_view.Dispose();
 				_view = null;
 			}
